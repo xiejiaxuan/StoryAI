@@ -1,0 +1,25 @@
+{
+  "format_version": "1.0",
+  "title": "曼巴重生",
+  "genre": "都市",
+  "sub_genre": "体育重生",
+  "target_chapters": 50,
+  "pov_style": "third_person_limited",
+  "tone": "热血",
+  "created_at": "2026-05-26",
+  "protagonist": {
+    "original": "科比·布莱恩特 (Kobe Bryant)",
+    "host_body": "杰森·布莱克 (Jason Blake)",
+    "age": 20,
+    "year": 2026,
+    "height_cm": 198,
+    "wingspan_cm": 212,
+    "vertical_cm": 98,
+    "hand_length_cm": 21.5,
+    "hand_span_cm": 25.5,
+    "physique_note": "NBA乐透级——科比从未拥有过的完美身体。原主因家庭变故酗酒自毁，意外死亡后科比意识苏醒接管。"
+  },
+  "no_system": true,
+  "power_system": "none",
+  "core_conflict": "科比二十年的比赛灵魂 + 原主浪费的完美天赋身体 - 六年死亡空白 = 重生之路"
+}

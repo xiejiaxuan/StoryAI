@@ -21,11 +21,19 @@ StoryAI/
 │   ├── ai-humanizer/                  # 去 AI 味
 │   └── consistency-tracker/           # 一致性追踪
 ├── shared/
+│   ├── rules/                         # 通用写作规则（适用于所有小说）
 │   ├── scripts/                       # 共享 Python 工具（纯 stdlib）
 │   ├── templates/                     # 输出结构模板
 │   └── references/                    # 参考标准文档
-└── .storyai/                          # 项目运行时状态（自动创建）
+└── novels/
+    └── 曼巴重生/                       # 每本小说独立目录
+        ├── chapters/                   # 章节正文
+        ├── .storyai/                   # 本小说运行时状态 + 特定规则
+        ├── world_settings.md
+        ├── characters.md
+        └── plot_outline.md
 ```
+**多小说支持**：`shared/` 是通用层，每本小说在 `novels/<书名>/` 下拥有独立的一切（章节、设定、规则、状态）。
 
 ## How to Use
 
@@ -61,7 +69,7 @@ StoryAI/
 
 ## File Naming Conventions
 
-所有 Skill 通过文件路径约定互相发现输出：
+每本小说在 `novels/<书名>/` 下有独立的文件。当前工作目录应切换到小说目录下。
 
 - 世界观：`world_settings.md`
 - 角色档案：`characters.md`
@@ -73,6 +81,7 @@ StoryAI/
 - 实体数据库：`.storyai/entity_db.json`
 - 一致性报告：`consistency_report.md`
 - 流水线状态：`.storyai/state.json`
+- 小说特定规则：`.storyai/novel-rules.md`
 
 ## Scripts
 

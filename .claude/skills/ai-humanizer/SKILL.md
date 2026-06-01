@@ -24,7 +24,7 @@ description: >
 python .claude/skills/ai-humanizer/scripts/detect_patterns.py --file <章节文件>
 ```
 
-这会扫描全部 51 条 AI 腔模式（A-I 九大类）并输出命中报告。
+这会扫描全部 51 条 AI 腔模式（A-I 九大类）并输出命中报告。同时加载 `shared/references/deai_rules.md` 的 10 条规则作为补充判定基准。
 
 ### 第 2 步：分级处理
 

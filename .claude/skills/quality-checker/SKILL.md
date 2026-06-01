@@ -17,6 +17,8 @@ python .claude/skills/quality-checker/scripts/quality_check.py --file <章节文
 
 检查：字数达标、中文纯度、AI 标记词、模板化结尾、段落长度。
 
+审核时同步加载 `shared/references/ai_patterns.md` 和 `shared/references/deai_rules.md` 作为判定基准。
+
 ## 全量审核（33 维度）
 
 ```bash

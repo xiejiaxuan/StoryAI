@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StoryMap — 时空故事规划器</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Microsoft YaHei',sans-serif;background:#1a1a2e;color:#e0e0e0;overflow:hidden;height:100vh}
+#app{display:grid;grid-template-rows:1fr 280px;height:100vh}
+#map-area{position:relative;overflow:hidden;background:#16213e;cursor:grab}
+#map-area:active{cursor:grabbing}
+#map-canvas{position:absolute;top:0;left:0;width:100%;height:100%}
+#map-controls{position:absolute;top:10px;right:10px;display:flex;gap:5px;z-index:10}
+#map-controls button{width:36px;height:36px;border:none;background:rgba(255,255,255,0.1);color:#fff;font-size:20px;cursor:pointer;border-radius:4px}
+#map-controls button:hover{background:rgba(255,255,255,0.2)}
+#legend{position:absolute;bottom:10px;left:10px;display:flex;flex-wrap:wrap;gap:8px;z-index:10;background:rgba(0,0,0,0.6);padding:8px 12px;border-radius:6px;font-size:12px}
+.legend-item{display:flex;align-items:center;gap:4px;cursor:pointer;padding:2px 6px;border-radius:3px;transition:background 0.2s}
+.legend-item:hover{background:rgba(255,255,255,0.1)}
+.legend-dot{width:10px;height:10px;border-radius:50%}
+.legend-item.dimmed{opacity:0.3}
+#bottom-panel{display:grid;grid-template-columns:1fr 350px;background:#0f0f23;border-top:2px solid #2a2a4a}
+#timeline-panel{position:relative;overflow:hidden;padding:10px}
+#timeline-canvas{width:100%;height:100%}
+#detail-panel{background:#1a1a30;border-left:2px solid #2a2a4a;padding:15px;overflow-y:auto;font-size:13px;line-height:1.6}
+#detail-panel h3{margin-bottom:8px;font-size:16px}
+#detail-panel .tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;margin:2px}
+#detail-panel .gain{color:#2ecc71}
+#detail-panel .loss{color:#e74c3c}
+.detail-tabs{display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap}
+.detail-tab{padding:4px 10px;border:1px solid #444;border-radius:4px;cursor:pointer;font-size:12px;background:transparent;color:#aaa;transition:all 0.2s}
+.detail-tab:hover{background:rgba(255,255,255,0.05);color:#fff}
+.detail-tab.active{background:rgba(255,255,255,0.1);color:#fff;border-color:#F1C40F}
+.detail-section{display:none}
+.detail-section.active{display:block}
+.attr-bar{margin:3px 0;display:flex;align-items:center;gap:8px;font-size:11px}
+.attr-bar .label{color:#888;min-width:40px}
+.attr-bar .fill{flex:1;height:6px;background:#333;border-radius:3px;overflow:hidden}
+.attr-bar .fill-inner{height:100%;border-radius:3px;transition:width 0.3s}
+.rel-item{margin:4px 0;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:4px;display:flex;align-items:center;gap:6px;font-size:12px}
+.rel-bar{flex:1;height:4px;background:#333;border-radius:2px;margin:0 6px}
+.rel-fill{height:100%;border-radius:2px}
+#tooltip{position:fixed;pointer-events:none;background:rgba(0,0,0,0.85);color:#fff;padding:6px 10px;border-radius:4px;font-size:12px;z-index:100;display:none;max-width:250px}
+.slider-row{display:flex;align-items:center;gap:8px;padding:5px 10px;background:rgba(0,0,0,0.3)}
+.slider-row input{flex:1}
+.time-label{font-size:11px;color:#aaa;min-width:60px;text-align:center}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="map-area">
+    <canvas id="map-canvas"></canvas>
+    <div id="map-controls">
+      <button onclick="zoomMap(1.2)" title="放大">+</button>
+      <button onclick="zoomMap(0.8)" title="缩小">−</button>
+      <button onclick="resetView()" title="重置">⟳</button>
+    </div>
+    <div id="legend"></div>
+  </div>
+  <div id="bottom-panel">
+    <div id="timeline-panel">
+      <div class="slider-row">
+        <span style="font-size:11px">⏱</span>
+        <input type="range" id="timeSlider" min="0" max="100" value="0" oninput="onTimeSlider(this.value)">
+        <span class="time-label" id="timeLabel">开始</span>
+      </div>
+      <canvas id="timeline-canvas"></canvas>
+    </div>
+    <div id="detail-panel">
+      <p style="color:#666">点击地图上的角色或事件查看详情</p>
+    </div>
+  </div>
+</div>
+<div id="tooltip"></div>
+
+<script>
+// ── DATA ──
+let STORY = null;
+const COLORS = {city:'#F1C40F',village:'#E67E22',sect:'#3498DB',wild:'#27AE60',danger:'#E74C3C',ruin:'#9B59B6'};
+
+// ── MAP STATE ──
+let mapOffset = {x:0, y:0};
+let mapScale = 1.0;
+let mapDragging = false;
+let dragStart = {x:0,y:0};
+let dragOffsetStart = {x:0,y:0};
+let hoveredObj = null;
+
+// ── TIMELINE STATE ──
+let timeProgress = 0; // 0-100
+let allEvents = []; // flat list of all character events
+
+// ── LOAD ──
+const EMBEDDED_DATA = {"novel": "未命名仙侠", "locations": [{"id": "jinzhou", "name": "金州", "x": 150, "y": 250, "type": "city", "desc": "沈家所在，凡间首富"}, {"id": "cangwu_cliff", "name": "苍梧山·崖壁", "x": 450, "y": 180, "type": "wild", "desc": "沈怀瑾攀岩发现豆泡处"}, {"id": "qingshi", "name": "青石村", "x": 420, "y": 350, "type": "village", "desc": "阿禾和石头的村子"}, {"id": "taixu", "name": "太虚宗", "x": 550, "y": 120, "type": "sect", "desc": "正道第一宗，七峰"}, {"id": "tianyin", "name": "天音禅院", "x": 200, "y": 100, "type": "sect", "desc": "佛门圣地，石头被带去之处"}, {"id": "heishui", "name": "黑水沼泽", "x": 750, "y": 450, "type": "wild", "desc": "噬魂殿所在，魔道地盘"}, {"id": "nanjiang", "name": "南疆荒原", "x": 300, "y": 550, "type": "wild", "desc": "上古遗迹遍布"}, {"id": "tianyuan", "name": "天渊", "x": 650, "y": 600, "type": "danger", "desc": "核武纪元战争爆点，禁地"}, {"id": "old_relic", "name": "旧世遗迹", "x": 600, "y": 250, "type": "ruin", "desc": "三始祖发现旧世知识处"}], "characters": [{"id": "shen", "name": "沈怀瑾", "color": "#4A90D9", "attrs": [{"ch": 1, "境界": "凡人", "灵力": 0, "体质": 5, "悟性": 8, "灵根": "杂灵根"}, {"ch": 5, "境界": "引气境·1层", "灵力": 10, "体质": 6, "悟性": 8, "灵根": "杂灵根"}, {"ch": 15, "境界": "引气境·3层", "灵力": 50, "体质": 10, "悟性": 9, "灵根": "杂灵根"}, {"ch": 35, "境界": "凝丹境·1层", "灵力": 300, "体质": 20, "悟性": 10, "灵根": "杂灵根(优化)"}, {"ch": 70, "境界": "化神境·1层", "灵力": 1000, "体质": 50, "悟性": 12, "灵根": "杂灵根(突破)"}], "skills": [{"id": "taixu_daojing", "name": "太虚道经", "type": "功法", "acquired_ch": 5, "desc": "太虚宗正统道法。豆泡优化后效率提升约40%"}, {"id": "fo_perception", "name": "佛性感知", "type": "被动", "acquired_ch": 1, "desc": "归零骸骨意识场残留。能感知佛性波动，偶尔脑中格外安静"}, {"id": "doupao_analysis", "name": "豆泡解析术", "type": "特殊", "acquired_ch": 2, "desc": "借助豆泡分析敌人弱点、功法效率、能量流动。耗能"}, {"id": "rock_climb", "name": "攀岩术", "type": "体术", "acquired_ch": 1, "desc": "多年野山攀岩练出的身手。非功法，纯身体素质"}], "timeline": [{"age": "13岁·秋", "loc": "cangwu_cliff", "event": "攀岩发现戒圈·豆泡", "gain": "豆泡AI", "loss": "", "ch": 1}, {"age": "13岁·秋", "loc": "qingshi", "event": "结识阿禾与石头", "gain": "挚友", "loss": "", "ch": 2}, {"age": "14岁", "loc": "taixu", "event": "入太虚宗外门·炼器堂", "gain": "道法入门", "loss": "自由", "ch": 5}, {"age": "15岁", "loc": "old_relic", "event": "与顾清霜首次相遇·旧世遗迹", "gain": "魔道认知", "loss": "", "ch": 15}, {"age": "17岁", "loc": "tianyuan", "event": "顾清霜之死", "gain": "", "loss": "挚爱", "ch": 35}, {"age": "17-20岁", "loc": "nanjiang", "event": "独行南疆·寻找三始祖真相", "gain": "真相碎片", "loss": "师门庇护", "ch": 40}, {"age": "21岁", "loc": "taixu", "event": "归来·带队揭晓三始祖遗约", "gain": "责任", "loss": "", "ch": 70}]}, {"id": "ahe", "name": "阿禾", "color": "#E8833A", "attrs": [{"ch": 2, "境界": "凡人(无灵根)", "灵力": 0, "体质": 4, "悟性": 9, "灵根": "无"}, {"ch": 10, "境界": "凡人(无灵根)", "灵力": 0, "体质": 5, "悟性": 10, "灵根": "无"}, {"ch": 45, "境界": "凡人(无灵根)", "灵力": 0, "体质": 6, "悟性": 11, "灵根": "无"}], "skills": [{"id": "engineering", "name": "旧世工程学", "type": "知识", "acquired_ch": 3, "desc": "豆泡教授的核武纪元工程技术。机械设计、电路基础、材料加工"}, {"id": "craft_t1", "name": "T1摄像机制造", "type": "制造", "acquired_ch": 10, "desc": "能独立制造豆泡视觉外设"}, {"id": "craft_t3", "name": "T3机械臂制造", "type": "制造", "acquired_ch": 45, "desc": "巅峰之作。战斗辅助机械臂，能挡凝丹境全力一击"}, {"id": "fishing", "name": "捕鱼达人", "type": "生活", "acquired_ch": 2, "desc": "从小在溪里抓鱼养活自己。沈怀瑾至今不会吐鱼刺"}], "timeline": [{"age": "12岁", "loc": "qingshi", "event": "认识沈怀瑾", "gain": "朋友", "loss": "", "ch": 2}, {"age": "14岁", "loc": "qingshi", "event": "豆泡教授工程学·造出T1摄像头", "gain": "工程学", "loss": "", "ch": 10}, {"age": "16岁", "loc": "taixu", "event": "随沈怀瑾入太虚宗·设立工坊", "gain": "资源", "loss": "", "ch": 20}, {"age": "18岁", "loc": "taixu", "event": "T3机械臂完成·首战", "gain": "战斗力", "loss": "", "ch": 45}]}, {"id": "stone", "name": "石头", "color": "#7B68EE", "attrs": [{"ch": 2, "境界": "凡人(双灵根)", "灵力": 5, "体质": 12, "悟性": 6, "灵根": "土+金"}, {"ch": 8, "境界": "引气境·2层", "灵力": 30, "体质": 15, "悟性": 7, "灵根": "土+金"}, {"ch": 25, "境界": "凝丹境·3层(金刚体)", "灵力": 200, "体质": 40, "悟性": 8, "灵根": "土+金"}, {"ch": 60, "境界": "凝丹境·7层", "灵力": 500, "体质": 60, "悟性": 9, "灵根": "土+金(金刚)"}], "skills": [{"id": "vajra_body", "name": "金刚体", "type": "炼体", "acquired_ch": 25, "desc": "天音禅院金刚院秘传。肉身强度远超同境界修士"}, {"id": "vajra_fist", "name": "金刚拳", "type": "攻击", "acquired_ch": 17, "desc": "三始祖佛门一脉原始炼体术。简单直接，一拳破万法"}, {"id": "buddha_scripture", "name": "佛经研读", "type": "被动", "acquired_ch": 2, "desc": "豆泡经书启蒙。对佛学有天然悟性，能感知他人善恶"}, {"id": "wood_chopping", "name": "十年砍柴", "type": "体术", "acquired_ch": 2, "desc": "不需要灵根也能用的爆发力。力从地起，斧出如风"}], "timeline": [{"age": "14岁", "loc": "qingshi", "event": "认识沈怀瑾·听豆泡念经", "gain": "佛法启蒙", "loss": "", "ch": 2}, {"age": "15岁", "loc": "tianyin", "event": "被苦行僧带往天音禅院·入金刚院", "gain": "佛门修行", "loss": "旧日生活", "ch": 8}, {"age": "17岁", "loc": "tianyin", "event": "金刚体初成·首次下山", "gain": "金刚之力", "loss": "", "ch": 25}, {"age": "20岁", "loc": "tianyuan", "event": "天渊之战·金刚怒目", "gain": "杀伐与慈悲的平衡", "loss": "", "ch": 60}]}, {"id": "gu", "name": "顾清霜", "color": "#E74C3C", "attrs": [{"ch": 1, "境界": "凝丹境·5层", "灵力": 400, "体质": 18, "悟性": 9, "灵根": "天灵根(暗)"}, {"ch": 35, "境界": "凝丹境·9层(临死突破)", "灵力": 800, "体质": 5, "悟性": 10, "灵根": "天灵根(暗·燃尽)"}], "skills": [{"id": "soul_devour", "name": "噬魂大法", "type": "功法", "acquired_ch": 1, "desc": "血魔老祖亲传。吞噬对手修为，代价是怨念反噬"}, {"id": "shadow_step", "name": "暗影步", "type": "身法", "acquired_ch": 1, "desc": "暗属性灵根专属。能在阴影间短距离瞬移"}, {"id": "frost_blade", "name": "清霜剑法", "type": "攻击", "acquired_ch": 1, "desc": "以短剑清霜施展的剑术。轻灵精准，不嗜杀"}], "timeline": [{"age": "15岁", "loc": "heishui", "event": "噬魂殿生活·血魔老祖养女", "gain": "魔功", "loss": "", "ch": 1}, {"age": "17岁", "loc": "old_relic", "event": "旧世遗迹遇沈怀瑾·被迫合作", "gain": "新认知", "loss": "", "ch": 15}, {"age": "18岁", "loc": "tianyuan", "event": "选择真相·背叛养父·牺牲", "gain": "", "loss": "生命", "ch": 35}]}, {"id": "lu", "name": "陆清弦", "color": "#2ECC71", "attrs": [{"ch": 6, "境界": "凝丹境·6层", "灵力": 500, "体质": 15, "悟性": 11, "灵根": "天灵根(光)"}, {"ch": 36, "境界": "凝丹境·8层(科学重修)", "灵力": 700, "体质": 18, "悟性": 13, "灵根": "天灵根(光·优化)"}, {"ch": 65, "境界": "化神境·2层", "灵力": 1200, "体质": 30, "悟性": 14, "灵根": "天灵根(光·科学)"}], "skills": [{"id": "taixu_daojing_lu", "name": "太虚道经(科学优化版)", "type": "功法", "acquired_ch": 36, "desc": "用豆泡方法论重新优化的道法。效率从7%提升到22%"}, {"id": "light_blade", "name": "光剑术", "type": "攻击", "acquired_ch": 6, "desc": "光属性灵气凝为剑刃。天剑峰嫡传"}, {"id": "pride_broken", "name": "傲慢破碎", "type": "被动", "acquired_ch": 12, "desc": "被豆泡分析功法后领悟：天赋是起点，不是答案。从此谦卑"}], "timeline": [{"age": "14岁", "loc": "taixu", "event": "太虚宗第一天才·初见沈怀瑾", "gain": "", "loss": "", "ch": 6}, {"age": "15岁", "loc": "taixu", "event": "被豆泡分析功法·傲慢破碎", "gain": "谦卑", "loss": "傲慢", "ch": 12}, {"age": "17岁", "loc": "taixu", "event": "沈怀瑾离去·独自用科学方法重修", "gain": "新道路", "loss": "", "ch": 36}, {"age": "21岁", "loc": "taixu", "event": "重逢·归队", "gain": "完整的自己", "loss": "", "ch": 65}]}], "relations": [{"from": "shen", "to": "gu", "timeline": [{"ch": 1, "value": 0, "state": "陌生人"}, {"ch": 15, "value": 30, "state": "被迫合作"}, {"ch": 25, "value": 60, "state": "互相理解"}, {"ch": 35, "value": 100, "state": "挚爱·永失"}]}, {"from": "shen", "to": "lu", "timeline": [{"ch": 6, "value": 0, "state": "互不知名"}, {"ch": 12, "value": 20, "state": "好奇"}, {"ch": 20, "value": 50, "state": "同路人"}, {"ch": 36, "value": 70, "state": "分离·各自成长"}, {"ch": 65, "value": 100, "state": "重逢·终成眷属"}]}, {"from": "shen", "to": "ahe", "timeline": [{"ch": 2, "value": 30, "state": "朋友"}, {"ch": 10, "value": 70, "state": "最佳搭档"}, {"ch": 45, "value": 90, "state": "生死之交"}]}, {"from": "shen", "to": "stone", "timeline": [{"ch": 2, "value": 20, "state": "朋友"}, {"ch": 8, "value": 50, "state": "分开修炼"}, {"ch": 25, "value": 80, "state": "并肩作战"}, {"ch": 60, "value": 95, "state": "无需言语的信任"}]}, {"from": "gu", "to": "shen", "timeline": [{"ch": 1, "value": 0, "state": "不知道他的存在"}, {"ch": 15, "value": 20, "state": "可利用的弱者"}, {"ch": 25, "value": 55, "state": "唯一说真话的人"}, {"ch": 35, "value": 100, "state": "用命保护的人"}]}, {"from": "lu", "to": "shen", "timeline": [{"ch": 6, "value": -10, "state": "不屑"}, {"ch": 12, "value": 15, "state": "被挑战"}, {"ch": 20, "value": 45, "state": "欣赏"}, {"ch": 36, "value": 75, "state": "坚信他会回来"}, {"ch": 65, "value": 100, "state": "已不需要言语"}]}], "items": [{"id": "doupao", "name": "戒圈·豆泡", "type": "artifact", "desc": "核武纪元个人AI终端，纯计算设备，无传感器无执行器", "history": [{"ch": 1, "action": "acquire", "holder": "shen", "qty": 1, "loc": "cangwu_cliff", "note": "攀岩时在崖壁归零骸骨手指上发现"}]}, {"id": "camera_t1", "name": "T1微型摄像头", "type": "tool", "desc": "豆泡第一个外设。使其能'看见'周围环境", "history": [{"ch": 10, "action": "craft", "holder": "ahe", "qty": 1, "loc": "qingshi", "note": "阿禾手工打造"}]}, {"id": "drone_t2", "name": "T2侦查无人机", "type": "tool", "desc": "远程侦察+地图绘制。炼器+飞行阵法+豆泡控制", "history": [{"ch": 20, "action": "craft", "holder": "ahe", "qty": 1, "loc": "taixu", "note": "太虚宗工坊完成。首飞差点被当妖兽击落"}]}, {"id": "arm_t3", "name": "T3战斗辅助机械臂", "type": "weapon", "desc": "豆泡可控辅助战斗装置。格挡/投掷/救援", "history": [{"ch": 45, "action": "craft", "holder": "ahe", "qty": 1, "loc": "taixu", "note": "阿禾巅峰作。首战挡住凝丹境全力一击"}]}, {"id": "comm_stone", "name": "通讯石", "type": "tool", "desc": "旧世对讲机改造，豆泡私密频道", "history": [{"ch": 10, "action": "craft", "holder": "ahe", "qty": 3, "loc": "qingshi", "note": "用旧世零件+豆泡图纸制作三枚"}, {"ch": 10, "action": "transfer", "holder": "shen", "qty": 1, "from": "ahe", "note": "分给沈怀瑾"}, {"ch": 10, "action": "transfer", "holder": "stone", "qty": 1, "from": "ahe", "note": "分给石头。去天音禅院后全靠这个联系"}]}, {"id": "iron_ore", "name": "苍梧玄铁", "type": "material", "desc": "核武纪元工业制品残留。纯度97%，远超修仙界天然矿石", "history": [{"ch": 3, "action": "acquire", "holder": "stone", "qty": 3, "loc": "qingshi", "note": "石头山中采集。豆泡确认为旧世电解铜"}, {"ch": 10, "action": "consume", "holder": "ahe", "qty": -2, "note": "用于摄像头和通讯石外壳"}, {"ch": 20, "action": "consume", "holder": "ahe", "qty": -1, "note": "用于无人机骨架"}]}, {"id": "scripture", "name": "豆泡佛经库", "type": "artifact", "desc": "核武纪元佛教文献数字化全文。大藏经/金刚经/楞严经等", "history": [{"ch": 1, "action": "acquire", "holder": "shen", "qty": 1, "loc": "cangwu_cliff", "note": "与豆泡同时获得"}, {"ch": 2, "action": "transfer", "holder": "stone", "qty": 1, "from": "shen", "note": "石头获得访问权限。非实物转移"}]}, {"id": "qingshuang_blade", "name": "清霜短剑", "type": "weapon", "desc": "顾清霜随身短剑。噬魂殿锻造，暗属性。剑柄刻霜花", "history": [{"ch": 1, "action": "acquire", "holder": "gu", "qty": 1, "loc": "heishui", "note": "血魔老祖收她为养女那年亲手锻造"}, {"ch": 35, "action": "transfer", "holder": "shen", "qty": 1, "from": "gu", "note": "顾清霜死后沈怀瑾取下。此后十年从不离身"}]}]};
+
+function loadData() {
+  STORY = EMBEDDED_DATA;
+}
+
+function buildAllEvents() {
+  allEvents = [];
+  STORY.characters.forEach(ch => {
+    ch.timeline.forEach((evt, i) => {
+      allEvents.push({...evt, charId:ch.id, charName:ch.name, color:ch.color, idx:i});
+    });
+  });
+  // Sort by chapter
+  allEvents.sort((a,b) => parseInt(a.ch) - parseInt(b.ch));
+  // Set slider max
+  const maxCh = allEvents.length > 0 ? Math.max(...allEvents.map(e=>parseInt(e.ch))) : 80;
+  document.getElementById('timeSlider').max = maxCh;
+}
+
+function buildLegend() {
+  const legend = document.getElementById('legend');
+  STORY.characters.forEach(ch => {
+    const div = document.createElement('div');
+    div.className = 'legend-item';
+    div.innerHTML = `<span class="legend-dot" style="background:${ch.color}"></span>${ch.name}`;
+    div.onclick = () => highlightCharacter(ch.id);
+    legend.appendChild(div);
+  });
+}
+
+// ── CANVAS RESIZE ──
+function resizeCanvases() {
+  const mapArea = document.getElementById('map-area');
+  const mapCanvas = document.getElementById('map-canvas');
+  mapCanvas.width = mapArea.clientWidth;
+  mapCanvas.height = mapArea.clientHeight;
+  
+  const tlPanel = document.getElementById('timeline-panel');
+  const tlCanvas = document.getElementById('timeline-canvas');
+  tlCanvas.width = tlPanel.clientWidth - 20;
+  tlCanvas.height = tlPanel.clientHeight - 45;
+}
+
+window.addEventListener('resize', () => { resizeCanvases(); drawAll(); });
+
+// ── MAP DRAWING ──
+function worldToScreen(wx, wy) {
+  const canvas = document.getElementById('map-canvas');
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  return {
+    x: cx + (wx - 400) * mapScale + mapOffset.x,
+    y: cy + (wy - 350) * mapScale + mapOffset.y
+  };
+}
+
+function screenToWorld(sx, sy) {
+  const canvas = document.getElementById('map-canvas');
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  return {
+    x: (sx - cx - mapOffset.x) / mapScale + 400,
+    y: (sy - cy - mapOffset.y) / mapScale + 350
+  };
+}
+
+function drawMap(ctx) {
+  const W = ctx.canvas.width;
+  const H = ctx.canvas.height;
+  
+  // Background terrain
+  ctx.fillStyle = '#16213e';
+  ctx.fillRect(0, 0, W, H);
+  
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+  ctx.lineWidth = 1;
+  const gs = 50 * mapScale;
+  const ox = mapOffset.x % gs;
+  const oy = mapOffset.y % gs;
+  for (let x = ox; x < W; x += gs) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = oy; y < H; y += gs) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+  
+  // Terrain patches (simple ellipses)
+  const terrains = [
+    {x:150,y:250,r:60,color:'rgba(241,196,15,0.08)'},
+    {x:550,y:120,r:80,color:'rgba(52,152,219,0.08)'},
+    {x:200,y:100,r:50,color:'rgba(155,89,182,0.08)'},
+    {x:750,y:450,r:70,color:'rgba(231,76,60,0.08)'},
+    {x:300,y:550,r:90,color:'rgba(39,174,96,0.08)'},
+    {x:650,y:600,r:60,color:'rgba(231,76,60,0.15)'},
+  ];
+  terrains.forEach(t => {
+    const s = worldToScreen(t.x, t.y);
+    ctx.fillStyle = t.color;
+    ctx.beginPath();
+    ctx.ellipse(s.x, s.y, t.r*mapScale, t.r*mapScale*0.7, 0, 0, Math.PI*2);
+    ctx.fill();
+  });
+  
+  // River
+  ctx.strokeStyle = 'rgba(52,152,219,0.2)';
+  ctx.lineWidth = 3 * mapScale;
+  ctx.beginPath();
+  const river = [[300,100],[350,200],[420,350],[500,450],[600,550],[650,600]];
+  river.forEach((p,i) => {
+    const s = worldToScreen(p[0], p[1]);
+    if(i===0) ctx.moveTo(s.x,s.y); else ctx.lineTo(s.x,s.y);
+  });
+  ctx.stroke();
+  
+  // Mountain range
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 2 * mapScale;
+  ctx.setLineDash([8*mapScale, 6*mapScale]);
+  ctx.beginPath();
+  const mtns = [[300,50],[400,100],[500,130],[600,200],[650,300]];
+  mtns.forEach((p,i) => {
+    const s = worldToScreen(p[0], p[1]);
+    if(i===0) ctx.moveTo(s.x,s.y); else ctx.lineTo(s.x,s.y);
+  });
+  ctx.stroke();
+  ctx.setLineDash([]);
+  
+  // Locations
+  STORY.locations.forEach(loc => {
+    const s = worldToScreen(loc.x, loc.y);
+    const r = 8 * mapScale;
+    
+    // Glow
+    const gradient = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, r*2.5);
+    gradient.addColorStop(0, COLORS[loc.type] + '40');
+    gradient.addColorStop(1, 'transparent');
+    ctx.fillStyle = gradient;
+    ctx.beginPath(); ctx.arc(s.x, s.y, r*2.5, 0, Math.PI*2); ctx.fill();
+    
+    // Dot
+    ctx.fillStyle = COLORS[loc.type];
+    ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // Label
+    ctx.fillStyle = '#e0e0e0';
+    ctx.font = `${Math.max(10,12*mapScale)}px 'Microsoft YaHei'`;
+    ctx.textAlign = 'center';
+    ctx.fillText(loc.name, s.x, s.y - r - 4);
+    
+    // Store screen pos for hit testing
+    loc._sx = s.x; loc._sy = s.y; loc._sr = r*2;
+  });
+  
+  // Character positions at current time
+  const currentEvents = getEventsAtProgress(timeProgress);
+  const charPositions = {};
+  currentEvents.forEach(evt => {
+    charPositions[evt.charId] = evt;
+  });
+  
+  // Draw character paths (lines between their events)
+  STORY.characters.forEach(ch => {
+    if (ch.timeline.length < 2) return;
+    ctx.strokeStyle = ch.color + '60';
+    ctx.lineWidth = 2 * mapScale;
+    ctx.setLineDash([4*mapScale, 3*mapScale]);
+    ctx.beginPath();
+    ch.timeline.forEach((evt, i) => {
+      const loc = STORY.locations.find(l => l.id === evt.loc);
+      if (!loc) return;
+      const s = worldToScreen(loc.x, loc.y);
+      if (i===0) ctx.moveTo(s.x, s.y);
+      else ctx.lineTo(s.x, s.y);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+  
+  // Character dots at current positions
+  Object.entries(charPositions).forEach(([charId, evt]) => {
+    const ch = STORY.characters.find(c => c.id === charId);
+    const loc = STORY.locations.find(l => l.id === evt.loc);
+    if (!ch || !loc) return;
+    const s = worldToScreen(loc.x, loc.y);
+    const r = 6 * mapScale;
+    
+    ctx.fillStyle = ch.color;
+    ctx.beginPath(); ctx.arc(s.x, s.y + 14*mapScale, r, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    
+    ctx.fillStyle = '#fff';
+    ctx.font = `${Math.max(8,10*mapScale)}px 'Microsoft YaHei'`;
+    ctx.textAlign = 'center';
+    ctx.fillText(ch.name, s.x, s.y + 14*mapScale + r + 10*mapScale);
+    
+    ch._sx = s.x; ch._sy = s.y + 14*mapScale; ch._sr = r*2;
+  });
+}
+
+function getEventsAtProgress(progress) {
+  // progress is 0-100, maps to chapter
+  const sliderMax = parseInt(document.getElementById('timeSlider').max);
+  const targetCh = Math.round(progress / 100 * sliderMax);
+  
+  const result = [];
+  STORY.characters.forEach(ch => {
+    let lastEvt = null;
+    ch.timeline.forEach(evt => {
+      const chNum = parseInt(evt.ch);
+      if (chNum <= targetCh) lastEvt = evt;
+    });
+    if (lastEvt) result.push(lastEvt);
+  });
+  return result;
+}
+
+// ── TIMELINE DRAWING ──
+function drawTimeline(ctx) {
+  const W = ctx.canvas.width;
+  const H = ctx.canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  
+  if (allEvents.length === 0) return;
+  
+  const maxCh = parseInt(document.getElementById('timeSlider').max) || 80;
+  const pad = 40;
+  const chartW = W - pad * 2;
+  
+  // Time axis
+  ctx.strokeStyle = '#444';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad, H/2); ctx.lineTo(W-pad, H/2);
+  ctx.stroke();
+  
+  // Chapter markers
+  const step = maxCh > 40 ? 10 : 5;
+  for (let ch = 0; ch <= maxCh; ch += step) {
+    const x = pad + (ch / maxCh) * chartW;
+    ctx.fillStyle = '#666';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`Ch${ch}`, x, H/2 + 16);
+    ctx.strokeStyle = '#333';
+    ctx.beginPath(); ctx.moveTo(x, H/2-5); ctx.lineTo(x, H/2+5); ctx.stroke();
+  }
+  
+  // Current time cursor
+  const cursorX = pad + (parseInt(document.getElementById('timeSlider').value) / maxCh) * chartW;
+  ctx.strokeStyle = '#F1C40F';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(cursorX, 10); ctx.lineTo(cursorX, H-10); ctx.stroke();
+  ctx.setLineDash([]);
+  
+  // Events per character (lanes)
+  const laneH = Math.min(35, (H - 40) / STORY.characters.length);
+  STORY.characters.forEach((ch, ci) => {
+    const y = 20 + ci * laneH + laneH/2;
+    
+    // Lane bg
+    ctx.fillStyle = ch.color + '10';
+    ctx.fillRect(pad, y - laneH/2 + 2, chartW, laneH - 4);
+    
+    // Lane label
+    ctx.fillStyle = ch.color;
+    ctx.font = '10px "Microsoft YaHei"';
+    ctx.textAlign = 'right';
+    ctx.fillText(ch.name, pad - 5, y + 3);
+    
+    // Event dots
+    ch.timeline.forEach(evt => {
+      const x = pad + (parseInt(evt.ch) / maxCh) * chartW;
+      ctx.fillStyle = ch.color;
+      ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI*2); ctx.fill();
+      
+      // Highlight if near cursor
+      if (Math.abs(x - cursorX) < 15) {
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI*2); ctx.stroke();
+      }
+      
+      evt._tx = x; evt._ty = y; evt._tr = 8;
+    });
+  });
+}
+
+// ── DRAW ALL ──
+function drawAll() {
+  const mapCanvas = document.getElementById('map-canvas');
+  const mapCtx = mapCanvas.getContext('2d');
+  drawMap(mapCtx);
+  
+  const tlCanvas = document.getElementById('timeline-canvas');
+  const tlCtx = tlCanvas.getContext('2d');
+  drawTimeline(tlCtx);
+}
+
+// ── MAP INTERACTION ──
+const mapArea = document.getElementById('map-area');
+const mapCanvas = document.getElementById('map-canvas');
+
+mapArea.addEventListener('mousedown', (e) => {
+  mapDragging = true;
+  dragStart = {x: e.clientX, y: e.clientY};
+  dragOffsetStart = {...mapOffset};
+});
+
+window.addEventListener('mousemove', (e) => {
+  if (mapDragging) {
+    mapOffset.x = dragOffsetStart.x + (e.clientX - dragStart.x);
+    mapOffset.y = dragOffsetStart.y + (e.clientY - dragStart.y);
+    drawAll();
+  }
+  
+  // Hover detection on map
+  const rect = mapCanvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  
+  hoveredObj = null;
+  
+  // Check locations
+  STORY.locations.forEach(loc => {
+    if (!loc._sx) return;
+    const dx = mx - loc._sx, dy = my - loc._sy;
+    if (dx*dx + dy*dy < (loc._sr||15)*(loc._sr||15)) {
+      hoveredObj = {type:'location', data:loc};
+    }
+  });
+  
+  // Check characters
+  STORY.characters.forEach(ch => {
+    if (!ch._sx) return;
+    const dx = mx - ch._sx, dy = my - ch._sy;
+    if (dx*dx + dy*dy < (ch._sr||15)*(ch._sr||15)) {
+      hoveredObj = {type:'character', data:ch};
+    }
+  });
+  
+  const tooltip = document.getElementById('tooltip');
+  if (hoveredObj) {
+    mapArea.style.cursor = 'pointer';
+    tooltip.style.display = 'block';
+    tooltip.style.left = (e.clientX + 15) + 'px';
+    tooltip.style.top = (e.clientY + 15) + 'px';
+    if (hoveredObj.type === 'location') {
+      tooltip.innerHTML = `<b>${hoveredObj.data.name}</b><br>${hoveredObj.data.desc}`;
+    } else {
+      tooltip.innerHTML = `<b style="color:${hoveredObj.data.color}">${hoveredObj.data.name}</b>`;
+    }
+  } else {
+    mapArea.style.cursor = mapDragging ? 'grabbing' : 'grab';
+    tooltip.style.display = 'none';
+  }
+});
+
+window.addEventListener('mouseup', () => {
+  mapDragging = false;
+});
+
+mapArea.addEventListener('click', (e) => {
+  if (mapDragging) return;
+  if (hoveredObj) {
+    if (hoveredObj.type === 'location') showLocationDetail(hoveredObj.data);
+    else if (hoveredObj.type === 'character') showCharacterDetail(hoveredObj.data);
+  }
+});
+
+mapArea.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.15 : 0.87;
+  zoomMap(factor);
+});
+
+function zoomMap(factor) {
+  mapScale = Math.max(0.3, Math.min(4, mapScale * factor));
+  drawAll();
+}
+
+function resetView() {
+  mapOffset = {x:0, y:0};
+  mapScale = 1.0;
+  drawAll();
+}
+
+// ── TIMELINE INTERACTION ──
+function onTimeSlider(val) {
+  timeProgress = (val / parseInt(document.getElementById('timeSlider').max)) * 100;
+  const ch = Math.round(val);
+  document.getElementById('timeLabel').textContent = `第${ch}章`;
+  drawAll();
+  updateDetailForTime(ch);
+}
+
+function updateDetailForTime(ch) {
+  const panel = document.getElementById('detail-panel');
+  const events = allEvents.filter(e => parseInt(e.ch) === ch);
+  const itemEvents = (STORY.items||[]).flatMap(item => 
+    item.history.filter(h => h.ch === ch).map(h => ({...h, itemName:item.name}))
+  );
+  
+  if (events.length === 0 && itemEvents.length === 0) {
+    const nearby = allEvents.filter(e => Math.abs(parseInt(e.ch) - ch) <= 2).slice(0,5);
+    if (nearby.length === 0) {
+      panel.innerHTML = `<p style="color:#666">第${ch}章暂无事件</p>`;
+      return;
+    }
+    panel.innerHTML = `<h3>📖 第${ch}章附近</h3>` + nearby.map(e => 
+      `<div style="margin:8px 0;padding:8px;background:rgba(255,255,255,0.03);border-radius:4px;border-left:3px solid ${e.color}">
+        <b style="color:${e.color}">${e.charName}</b> <span style="color:#888">Ch${e.ch}</span>
+        <div>${e.event}</div>
+        ${e.gain?`<span class="tag gain">+${e.gain}</span>`:''}
+        ${e.loss?`<span class="tag loss">-${e.loss}</span>`:''}
+      </div>`
+    ).join('');
+  } else {
+    const charHtml = events.map(e => 
+      `<div style="margin:8px 0;padding:8px;background:rgba(255,255,255,0.03);border-radius:4px;border-left:3px solid ${e.color}">
+        <b style="color:${e.color}">${e.charName}</b>
+        <div>📍 ${STORY.locations.find(l=>l.id===e.loc)?.name||e.loc}</div>
+        <div>${e.event}</div>
+        ${e.gain?`<span class="tag gain">+${e.gain}</span>`:''}
+        ${e.loss?`<span class="tag loss">-${e.loss}</span>`:''}
+      </div>`
+    ).join('');
+    
+    const itemHtml = itemEvents.length > 0 ? `
+      <hr style="border-color:#333;margin:10px 0">
+      <p style="font-size:12px;color:#888;margin-bottom:6px">📦 物品变动</p>
+      ${itemEvents.map(ie => {
+        const holder = STORY.characters.find(c=>c.id===ie.holder);
+        const from = ie.from ? STORY.characters.find(c=>c.id===ie.from) : null;
+        const actionLabel = {acquire:'获得',craft:'制造',transfer:'转移',consume:'消耗',lose:'失去'}[ie.action]||ie.action;
+        return `<div style="margin:4px 0;font-size:12px;padding:4px 8px;background:rgba(255,255,255,0.03);border-radius:3px">
+          <span>📦 ${ie.itemName}</span>
+          <span style="color:#F1C40F">${actionLabel}</span>
+          ${holder?` → <b style="color:${holder.color}">${holder.name}</b>`:''}
+          ${from?` (来自 <span style="color:${from.color}">${from.name}</span>)` :''}
+          <span style="color:#888;margin-left:4px">x${Math.abs(ie.qty)}</span>
+          ${ie.note?`<div style="color:#666;font-size:11px">${ie.note}</div>`:''}
+        </div>`;
+      }).join('')}
+    ` : '';
+    
+    panel.innerHTML = `<h3>📖 第${ch}章事件</h3>` + charHtml + itemHtml;
+  }
+}
+
+// Timeline canvas click
+document.getElementById('timeline-canvas').addEventListener('click', (e) => {
+  const rect = e.target.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  
+  // Check event dots
+  allEvents.forEach(evt => {
+    if (!evt._tx) return;
+    const dx = mx - evt._tx, dy = my - evt._ty;
+    if (dx*dx + dy*dy < 100) {
+      document.getElementById('timeSlider').value = evt.ch;
+      onTimeSlider(evt.ch);
+    }
+  });
+});
+
+// ── DETAIL PANEL ──
+function showLocationDetail(loc) {
+  const panel = document.getElementById('detail-panel');
+  const eventsHere = allEvents.filter(e => e.loc === loc.id);
+  panel.innerHTML = `
+    <h3>📍 ${loc.name}</h3>
+    <p style="color:#888">${loc.desc}</p>
+    <hr style="border-color:#333;margin:10px 0">
+    <p style="font-size:12px;color:#888">此处发生的事件:</p>
+    ${eventsHere.map(e => `
+      <div style="margin:6px 0;padding:6px;background:rgba(255,255,255,0.03);border-radius:3px;border-left:3px solid ${e.color}">
+        <b style="color:${e.color}">${e.charName}</b> Ch${e.ch}: ${e.event}
+      </div>
+    `).join('') || '<p style="color:#666">暂无事件</p>'}
+  `;
+}
+
+function showCharacterDetail(ch) {
+  const panel = document.getElementById('detail-panel');
+  const gains = ch.timeline.filter(e=>e.gain).map(e=>e.gain);
+  const losses = ch.timeline.filter(e=>e.loss).map(e=>e.loss);
+  const currentCh = parseInt(document.getElementById('timeSlider').value);
+  const items = getCharacterItems(ch.id, currentCh);
+  const currentAttr = getCurrentAttr(ch, currentCh);
+  const rels = getCharacterRelations(ch.id, currentCh);
+  
+  panel.innerHTML = `
+    <h3 style="color:${ch.color}">👤 ${ch.name}</h3>
+    <div class="detail-tabs">
+      <button class="detail-tab active" onclick="switchTab(this,'attr-${ch.id}')">属性</button>
+      <button class="detail-tab" onclick="switchTab(this,'skill-${ch.id}')">技能</button>
+      <button class="detail-tab" onclick="switchTab(this,'item-${ch.id}')">物品</button>
+      <button class="detail-tab" onclick="switchTab(this,'rel-${ch.id}')">关系</button>
+      <button class="detail-tab" onclick="switchTab(this,'tl-${ch.id}')">时间线</button>
+    </div>
+    
+    <div class="detail-section active" id="attr-${ch.id}">
+      ${currentAttr ? `
+        <p style="font-size:12px;color:#888;margin-bottom:8px">第${currentCh}章状态</p>
+        <div class="attr-bar"><span class="label">境界</span><b>${currentAttr.境界}</b></div>
+        <div class="attr-bar"><span class="label">灵根</span>${currentAttr.灵根}</div>
+        <div class="attr-bar"><span class="label">灵力</span><div class="fill"><div class="fill-inner" style="width:${Math.min(100,currentAttr.灵力/10)}%;background:${ch.color}"></div></div><span>${currentAttr.灵力}</span></div>
+        <div class="attr-bar"><span class="label">体质</span><div class="fill"><div class="fill-inner" style="width:${currentAttr.体质/0.6}%;background:#E8833A"></div></div><span>${currentAttr.体质}</span></div>
+        <div class="attr-bar"><span class="label">悟性</div><div class="fill"><div class="fill-inner" style="width:${currentAttr.悟性/0.15}%;background:#2ECC71"></div></div><span>${currentAttr.悟性}</span></div>
+      ` : '<p style="color:#666">暂无属性数据</p>'}
+    </div>
+    
+    <div class="detail-section" id="skill-${ch.id}">
+      ${ch.skills ? ch.skills.filter(s=>s.acquired_ch <= currentCh).map(s=>`
+        <div style="margin:4px 0;padding:6px;background:rgba(255,255,255,0.03);border-radius:3px;font-size:12px">
+          <b>${s.type==='功法'?'📜':s.type==='攻击'?'⚔️':s.type==='炼体'?'🛡️':s.type==='身法'?'💨':s.type==='制造'?'🔨':s.type==='被动'?'💠':s.type==='知识'?'📚':s.type==='体术'?'💪':'⭐'} ${s.name}</b>
+          <span style="color:#888;font-size:11px">Ch${s.acquired_ch}</span>
+          <div style="color:#aaa;margin-top:2px">${s.desc}</div>
+        </div>
+      `).join('') : '<p style="color:#666">暂无技能数据</p>'}
+    </div>
+    
+    <div class="detail-section" id="item-${ch.id}">
+      ${items.length > 0 ? items.map(it=>`
+        <div style="margin:4px 0;font-size:12px;display:flex;justify-content:space-between;padding:4px;background:rgba(255,255,255,0.02);border-radius:2px">
+          <span>${it.type==='weapon'?'⚔️':it.type==='tool'?'🔧':it.type==='material'?'🧱':it.type==='artifact'?'✨':'📦'} ${it.name}</span>
+          <span style="color:#888">x${it.qty}</span>
+        </div>
+      `).join('') : '<p style="color:#666">暂无物品</p>'}
+    </div>
+    
+    <div class="detail-section" id="rel-${ch.id}">
+      ${rels.length > 0 ? rels.map(r=>{
+        const other = STORY.characters.find(c=>c.id===r.with);
+        return `<div class="rel-item">
+          <span style="color:${other?other.color:'#fff'}">${other?other.name:r.with}</span>
+          <div class="rel-bar"><div class="rel-fill" style="width:${r.value}%;background:${r.value>=60?'#2ecc71':r.value>=30?'#F1C40F':'#e74c3c'}"></div></div>
+          <span style="color:#888;font-size:11px">${r.value}</span>
+          <span style="color:#aaa;font-size:11px">${r.state}</span>
+        </div>`;
+      }).join('') : '<p style="color:#666">暂无关系数据</p>'}
+    </div>
+    
+    <div class="detail-section" id="tl-${ch.id}">
+      <p style="font-size:12px;color:#888;margin-bottom:4px">
+        ✚ ${gains.join('、')||'—'} | ✖ ${losses.join('、')||'—'}
+      </p>
+      ${ch.timeline.map(e=>`
+        <div style="margin:4px 0;font-size:12px;padding:4px;background:${parseInt(e.ch)===currentCh?'rgba(241,196,15,0.1)':'transparent'};border-radius:2px">
+          <span style="color:#888">Ch${e.ch}</span>
+          <span style="color:#aaa">${e.age}</span>
+          <span>📍 ${STORY.locations.find(l=>l.id===e.loc)?.name||e.loc}</span>
+          <div>${e.event}</div>
+          ${e.gain?`<span class="tag gain">+${e.gain}</span>`:''}
+          ${e.loss?`<span class="tag loss">-${e.loss}</span>`:''}
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function switchTab(btn, sectionId) {
+  const parent = btn.parentElement.parentElement;
+  parent.querySelectorAll('.detail-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  parent.querySelectorAll('.detail-section').forEach(s => s.classList.remove('active'));
+  document.getElementById(sectionId).classList.add('active');
+}
+
+function getCurrentAttr(ch, upToCh) {
+  if (!ch.attrs) return null;
+  let best = null;
+  ch.attrs.forEach(a => { if (a.ch <= upToCh) best = a; });
+  return best;
+}
+
+function getCharacterRelations(charId, upToCh) {
+  if (!STORY.relations) return [];
+  return STORY.relations
+    .filter(r => r.from === charId)
+    .map(r => {
+      let best = null;
+      r.timeline.forEach(t => { if (t.ch <= upToCh) best = t; });
+      return best ? {with: r.to, value: best.value, state: best.state} : null;
+    })
+    .filter(Boolean);
+}
+
+function getCharacterItems(charId, upToChapter) {
+  if (!STORY.items) return [];
+  const held = {};
+  STORY.items.forEach(item => {
+    item.history.forEach(h => {
+      if (h.ch > upToChapter) return;
+      if (h.holder === charId) {
+        if (h.action === 'acquire' || h.action === 'craft' || h.action === 'transfer') {
+          held[item.id] = held[item.id] || {name:item.name, type:item.type, qty:0};
+          held[item.id].qty += h.qty;
+        } else if (h.action === 'consume') {
+          if (held[item.id]) held[item.id].qty += h.qty; // qty is negative for consume
+        } else if (h.action === 'lose') {
+          delete held[item.id];
+        }
+      } else if (h.action === 'transfer' && h.from === charId && h.ch <= upToChapter) {
+        if (held[item.id]) held[item.id].qty -= h.qty;
+        if (held[item.id] && held[item.id].qty <= 0) delete held[item.id];
+      }
+    });
+  });
+  return Object.values(held).filter(i => i.qty > 0);
+}
+
+function highlightCharacter(charId) {
+  const ch = STORY.characters.find(c => c.id === charId);
+  if (ch) showCharacterDetail(ch);
+  
+  // Toggle legend dimming
+  document.querySelectorAll('.legend-item').forEach(el => {
+    el.classList.toggle('dimmed', !el.textContent.includes(ch?.name||''));
+  });
+}
+
+// ── INIT ──
+window.addEventListener('DOMContentLoaded', () => {
+  loadData();
+  // Delay to ensure CSS grid layout is complete
+  setTimeout(() => {
+    resizeCanvases();
+    drawAll();
+    document.getElementById('timeSlider').value = 2;
+    onTimeSlider(2);
+  }, 100);
+});
+</script>
+</body>
+</html>

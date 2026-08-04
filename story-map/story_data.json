@@ -1,0 +1,239 @@
+{
+  "novel": "未命名仙侠",
+  "locations": [
+    { "id": "jinzhou", "name": "金州", "x": 150, "y": 250, "type": "city", "desc": "沈家所在，凡间首富" },
+    { "id": "cangwu_cliff", "name": "苍梧山·崖壁", "x": 450, "y": 180, "type": "wild", "desc": "沈怀瑾攀岩发现豆泡处" },
+    { "id": "qingshi", "name": "青石村", "x": 420, "y": 350, "type": "village", "desc": "阿禾和石头的村子" },
+    { "id": "taixu", "name": "太虚宗", "x": 550, "y": 120, "type": "sect", "desc": "正道第一宗，七峰" },
+    { "id": "tianyin", "name": "天音禅院", "x": 200, "y": 100, "type": "sect", "desc": "佛门圣地，石头被带去之处" },
+    { "id": "heishui", "name": "黑水沼泽", "x": 750, "y": 450, "type": "wild", "desc": "噬魂殿所在，魔道地盘" },
+    { "id": "nanjiang", "name": "南疆荒原", "x": 300, "y": 550, "type": "wild", "desc": "上古遗迹遍布" },
+    { "id": "tianyuan", "name": "天渊", "x": 650, "y": 600, "type": "danger", "desc": "核武纪元战争爆点，禁地" },
+    { "id": "old_relic", "name": "旧世遗迹", "x": 600, "y": 250, "type": "ruin", "desc": "三始祖发现旧世知识处" }
+  ],
+  "characters": [
+    {
+      "id": "shen", "name": "沈怀瑾", "color": "#4A90D9",
+      "attrs": [
+        { "ch": 1, "境界": "凡人", "灵力": 0, "体质": 5, "悟性": 8, "灵根": "杂灵根" },
+        { "ch": 5, "境界": "引气境·1层", "灵力": 10, "体质": 6, "悟性": 8, "灵根": "杂灵根" },
+        { "ch": 15, "境界": "引气境·3层", "灵力": 50, "体质": 10, "悟性": 9, "灵根": "杂灵根" },
+        { "ch": 35, "境界": "凝丹境·1层", "灵力": 300, "体质": 20, "悟性": 10, "灵根": "杂灵根(优化)" },
+        { "ch": 70, "境界": "化神境·1层", "灵力": 1000, "体质": 50, "悟性": 12, "灵根": "杂灵根(突破)" }
+      ],
+      "skills": [
+        { "id": "taixu_daojing", "name": "太虚道经", "type": "功法", "acquired_ch": 5, "desc": "太虚宗正统道法。豆泡优化后效率提升约40%" },
+        { "id": "fo_perception", "name": "佛性感知", "type": "被动", "acquired_ch": 1, "desc": "归零骸骨意识场残留。能感知佛性波动，偶尔脑中格外安静" },
+        { "id": "doupao_analysis", "name": "豆泡解析术", "type": "特殊", "acquired_ch": 2, "desc": "借助豆泡分析敌人弱点、功法效率、能量流动。耗能" },
+        { "id": "rock_climb", "name": "攀岩术", "type": "体术", "acquired_ch": 1, "desc": "多年野山攀岩练出的身手。非功法，纯身体素质" }
+      ],
+      "timeline": [
+        { "age": "13岁·秋", "loc": "cangwu_cliff", "event": "攀岩发现戒圈·豆泡", "gain": "豆泡AI", "loss": "", "ch": 1 },
+        { "age": "13岁·秋", "loc": "qingshi", "event": "结识阿禾与石头", "gain": "挚友", "loss": "", "ch": 2 },
+        { "age": "14岁", "loc": "taixu", "event": "入太虚宗外门·炼器堂", "gain": "道法入门", "loss": "自由", "ch": 5 },
+        { "age": "15岁", "loc": "old_relic", "event": "与顾清霜首次相遇·旧世遗迹", "gain": "魔道认知", "loss": "", "ch": 15 },
+        { "age": "17岁", "loc": "tianyuan", "event": "顾清霜之死", "gain": "", "loss": "挚爱", "ch": 35 },
+        { "age": "17-20岁", "loc": "nanjiang", "event": "独行南疆·寻找三始祖真相", "gain": "真相碎片", "loss": "师门庇护", "ch": 40 },
+        { "age": "21岁", "loc": "taixu", "event": "归来·带队揭晓三始祖遗约", "gain": "责任", "loss": "", "ch": 70 }
+      ]
+    },
+    {
+      "id": "ahe", "name": "阿禾", "color": "#E8833A",
+      "attrs": [
+        { "ch": 2, "境界": "凡人(无灵根)", "灵力": 0, "体质": 4, "悟性": 9, "灵根": "无" },
+        { "ch": 10, "境界": "凡人(无灵根)", "灵力": 0, "体质": 5, "悟性": 10, "灵根": "无" },
+        { "ch": 45, "境界": "凡人(无灵根)", "灵力": 0, "体质": 6, "悟性": 11, "灵根": "无" }
+      ],
+      "skills": [
+        { "id": "engineering", "name": "旧世工程学", "type": "知识", "acquired_ch": 3, "desc": "豆泡教授的核武纪元工程技术。机械设计、电路基础、材料加工" },
+        { "id": "craft_t1", "name": "T1摄像机制造", "type": "制造", "acquired_ch": 10, "desc": "能独立制造豆泡视觉外设" },
+        { "id": "craft_t3", "name": "T3机械臂制造", "type": "制造", "acquired_ch": 45, "desc": "巅峰之作。战斗辅助机械臂，能挡凝丹境全力一击" },
+        { "id": "fishing", "name": "捕鱼达人", "type": "生活", "acquired_ch": 2, "desc": "从小在溪里抓鱼养活自己。沈怀瑾至今不会吐鱼刺" }
+      ],
+      "timeline": [
+        { "age": "12岁", "loc": "qingshi", "event": "认识沈怀瑾", "gain": "朋友", "loss": "", "ch": 2 },
+        { "age": "14岁", "loc": "qingshi", "event": "豆泡教授工程学·造出T1摄像头", "gain": "工程学", "loss": "", "ch": 10 },
+        { "age": "16岁", "loc": "taixu", "event": "随沈怀瑾入太虚宗·设立工坊", "gain": "资源", "loss": "", "ch": 20 },
+        { "age": "18岁", "loc": "taixu", "event": "T3机械臂完成·首战", "gain": "战斗力", "loss": "", "ch": 45 }
+      ]
+    },
+    {
+      "id": "stone", "name": "石头", "color": "#7B68EE",
+      "attrs": [
+        { "ch": 2, "境界": "凡人(双灵根)", "灵力": 5, "体质": 12, "悟性": 6, "灵根": "土+金" },
+        { "ch": 8, "境界": "引气境·2层", "灵力": 30, "体质": 15, "悟性": 7, "灵根": "土+金" },
+        { "ch": 25, "境界": "凝丹境·3层(金刚体)", "灵力": 200, "体质": 40, "悟性": 8, "灵根": "土+金" },
+        { "ch": 60, "境界": "凝丹境·7层", "灵力": 500, "体质": 60, "悟性": 9, "灵根": "土+金(金刚)" }
+      ],
+      "skills": [
+        { "id": "vajra_body", "name": "金刚体", "type": "炼体", "acquired_ch": 25, "desc": "天音禅院金刚院秘传。肉身强度远超同境界修士" },
+        { "id": "vajra_fist", "name": "金刚拳", "type": "攻击", "acquired_ch": 17, "desc": "三始祖佛门一脉原始炼体术。简单直接，一拳破万法" },
+        { "id": "buddha_scripture", "name": "佛经研读", "type": "被动", "acquired_ch": 2, "desc": "豆泡经书启蒙。对佛学有天然悟性，能感知他人善恶" },
+        { "id": "wood_chopping", "name": "十年砍柴", "type": "体术", "acquired_ch": 2, "desc": "不需要灵根也能用的爆发力。力从地起，斧出如风" }
+      ],
+      "timeline": [
+        { "age": "14岁", "loc": "qingshi", "event": "认识沈怀瑾·听豆泡念经", "gain": "佛法启蒙", "loss": "", "ch": 2 },
+        { "age": "15岁", "loc": "tianyin", "event": "被苦行僧带往天音禅院·入金刚院", "gain": "佛门修行", "loss": "旧日生活", "ch": 8 },
+        { "age": "17岁", "loc": "tianyin", "event": "金刚体初成·首次下山", "gain": "金刚之力", "loss": "", "ch": 25 },
+        { "age": "20岁", "loc": "tianyuan", "event": "天渊之战·金刚怒目", "gain": "杀伐与慈悲的平衡", "loss": "", "ch": 60 }
+      ]
+    },
+    {
+      "id": "gu", "name": "顾清霜", "color": "#E74C3C",
+      "attrs": [
+        { "ch": 1, "境界": "凝丹境·5层", "灵力": 400, "体质": 18, "悟性": 9, "灵根": "天灵根(暗)" },
+        { "ch": 35, "境界": "凝丹境·9层(临死突破)", "灵力": 800, "体质": 5, "悟性": 10, "灵根": "天灵根(暗·燃尽)" }
+      ],
+      "skills": [
+        { "id": "soul_devour", "name": "噬魂大法", "type": "功法", "acquired_ch": 1, "desc": "血魔老祖亲传。吞噬对手修为，代价是怨念反噬" },
+        { "id": "shadow_step", "name": "暗影步", "type": "身法", "acquired_ch": 1, "desc": "暗属性灵根专属。能在阴影间短距离瞬移" },
+        { "id": "frost_blade", "name": "清霜剑法", "type": "攻击", "acquired_ch": 1, "desc": "以短剑清霜施展的剑术。轻灵精准，不嗜杀" }
+      ],
+      "timeline": [
+        { "age": "15岁", "loc": "heishui", "event": "噬魂殿生活·血魔老祖养女", "gain": "魔功", "loss": "", "ch": 1 },
+        { "age": "17岁", "loc": "old_relic", "event": "旧世遗迹遇沈怀瑾·被迫合作", "gain": "新认知", "loss": "", "ch": 15 },
+        { "age": "18岁", "loc": "tianyuan", "event": "选择真相·背叛养父·牺牲", "gain": "", "loss": "生命", "ch": 35 }
+      ]
+    },
+    {
+      "id": "lu", "name": "陆清弦", "color": "#2ECC71",
+      "attrs": [
+        { "ch": 6, "境界": "凝丹境·6层", "灵力": 500, "体质": 15, "悟性": 11, "灵根": "天灵根(光)" },
+        { "ch": 36, "境界": "凝丹境·8层(科学重修)", "灵力": 700, "体质": 18, "悟性": 13, "灵根": "天灵根(光·优化)" },
+        { "ch": 65, "境界": "化神境·2层", "灵力": 1200, "体质": 30, "悟性": 14, "灵根": "天灵根(光·科学)" }
+      ],
+      "skills": [
+        { "id": "taixu_daojing_lu", "name": "太虚道经(科学优化版)", "type": "功法", "acquired_ch": 36, "desc": "用豆泡方法论重新优化的道法。效率从7%提升到22%" },
+        { "id": "light_blade", "name": "光剑术", "type": "攻击", "acquired_ch": 6, "desc": "光属性灵气凝为剑刃。天剑峰嫡传" },
+        { "id": "pride_broken", "name": "傲慢破碎", "type": "被动", "acquired_ch": 12, "desc": "被豆泡分析功法后领悟：天赋是起点，不是答案。从此谦卑" }
+      ],
+      "timeline": [
+        { "age": "14岁", "loc": "taixu", "event": "太虚宗第一天才·初见沈怀瑾", "gain": "", "loss": "", "ch": 6 },
+        { "age": "15岁", "loc": "taixu", "event": "被豆泡分析功法·傲慢破碎", "gain": "谦卑", "loss": "傲慢", "ch": 12 },
+        { "age": "17岁", "loc": "taixu", "event": "沈怀瑾离去·独自用科学方法重修", "gain": "新道路", "loss": "", "ch": 36 },
+        { "age": "21岁", "loc": "taixu", "event": "重逢·归队", "gain": "完整的自己", "loss": "", "ch": 65 }
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "from": "shen", "to": "gu",
+      "timeline": [
+        { "ch": 1, "value": 0, "state": "陌生人" },
+        { "ch": 15, "value": 30, "state": "被迫合作" },
+        { "ch": 25, "value": 60, "state": "互相理解" },
+        { "ch": 35, "value": 100, "state": "挚爱·永失" }
+      ]
+    },
+    {
+      "from": "shen", "to": "lu",
+      "timeline": [
+        { "ch": 6, "value": 0, "state": "互不知名" },
+        { "ch": 12, "value": 20, "state": "好奇" },
+        { "ch": 20, "value": 50, "state": "同路人" },
+        { "ch": 36, "value": 70, "state": "分离·各自成长" },
+        { "ch": 65, "value": 100, "state": "重逢·终成眷属" }
+      ]
+    },
+    {
+      "from": "shen", "to": "ahe",
+      "timeline": [
+        { "ch": 2, "value": 30, "state": "朋友" },
+        { "ch": 10, "value": 70, "state": "最佳搭档" },
+        { "ch": 45, "value": 90, "state": "生死之交" }
+      ]
+    },
+    {
+      "from": "shen", "to": "stone",
+      "timeline": [
+        { "ch": 2, "value": 20, "state": "朋友" },
+        { "ch": 8, "value": 50, "state": "分开修炼" },
+        { "ch": 25, "value": 80, "state": "并肩作战" },
+        { "ch": 60, "value": 95, "state": "无需言语的信任" }
+      ]
+    },
+    {
+      "from": "gu", "to": "shen",
+      "timeline": [
+        { "ch": 1, "value": 0, "state": "不知道他的存在" },
+        { "ch": 15, "value": 20, "state": "可利用的弱者" },
+        { "ch": 25, "value": 55, "state": "唯一说真话的人" },
+        { "ch": 35, "value": 100, "state": "用命保护的人" }
+      ]
+    },
+    {
+      "from": "lu", "to": "shen",
+      "timeline": [
+        { "ch": 6, "value": -10, "state": "不屑" },
+        { "ch": 12, "value": 15, "state": "被挑战" },
+        { "ch": 20, "value": 45, "state": "欣赏" },
+        { "ch": 36, "value": 75, "state": "坚信他会回来" },
+        { "ch": 65, "value": 100, "state": "已不需要言语" }
+      ]
+    }
+  ],
+  "items": [
+    {
+      "id": "doupao", "name": "戒圈·豆泡", "type": "artifact",
+      "desc": "核武纪元个人AI终端，纯计算设备，无传感器无执行器",
+      "history": [
+        { "ch": 1, "action": "acquire", "holder": "shen", "qty": 1, "loc": "cangwu_cliff", "note": "攀岩时在崖壁归零骸骨手指上发现" }
+      ]
+    },
+    {
+      "id": "camera_t1", "name": "T1微型摄像头", "type": "tool",
+      "desc": "豆泡第一个外设。使其能'看见'周围环境",
+      "history": [
+        { "ch": 10, "action": "craft", "holder": "ahe", "qty": 1, "loc": "qingshi", "note": "阿禾手工打造" }
+      ]
+    },
+    {
+      "id": "drone_t2", "name": "T2侦查无人机", "type": "tool",
+      "desc": "远程侦察+地图绘制。炼器+飞行阵法+豆泡控制",
+      "history": [
+        { "ch": 20, "action": "craft", "holder": "ahe", "qty": 1, "loc": "taixu", "note": "太虚宗工坊完成。首飞差点被当妖兽击落" }
+      ]
+    },
+    {
+      "id": "arm_t3", "name": "T3战斗辅助机械臂", "type": "weapon",
+      "desc": "豆泡可控辅助战斗装置。格挡/投掷/救援",
+      "history": [
+        { "ch": 45, "action": "craft", "holder": "ahe", "qty": 1, "loc": "taixu", "note": "阿禾巅峰作。首战挡住凝丹境全力一击" }
+      ]
+    },
+    {
+      "id": "comm_stone", "name": "通讯石", "type": "tool",
+      "desc": "旧世对讲机改造，豆泡私密频道",
+      "history": [
+        { "ch": 10, "action": "craft", "holder": "ahe", "qty": 3, "loc": "qingshi", "note": "用旧世零件+豆泡图纸制作三枚" },
+        { "ch": 10, "action": "transfer", "holder": "shen", "qty": 1, "from": "ahe", "note": "分给沈怀瑾" },
+        { "ch": 10, "action": "transfer", "holder": "stone", "qty": 1, "from": "ahe", "note": "分给石头。去天音禅院后全靠这个联系" }
+      ]
+    },
+    {
+      "id": "iron_ore", "name": "苍梧玄铁", "type": "material",
+      "desc": "核武纪元工业制品残留。纯度97%，远超修仙界天然矿石",
+      "history": [
+        { "ch": 3, "action": "acquire", "holder": "stone", "qty": 3, "loc": "qingshi", "note": "石头山中采集。豆泡确认为旧世电解铜" },
+        { "ch": 10, "action": "consume", "holder": "ahe", "qty": -2, "note": "用于摄像头和通讯石外壳" },
+        { "ch": 20, "action": "consume", "holder": "ahe", "qty": -1, "note": "用于无人机骨架" }
+      ]
+    },
+    {
+      "id": "scripture", "name": "豆泡佛经库", "type": "artifact",
+      "desc": "核武纪元佛教文献数字化全文。大藏经/金刚经/楞严经等",
+      "history": [
+        { "ch": 1, "action": "acquire", "holder": "shen", "qty": 1, "loc": "cangwu_cliff", "note": "与豆泡同时获得" },
+        { "ch": 2, "action": "transfer", "holder": "stone", "qty": 1, "from": "shen", "note": "石头获得访问权限。非实物转移" }
+      ]
+    },
+    {
+      "id": "qingshuang_blade", "name": "清霜短剑", "type": "weapon",
+      "desc": "顾清霜随身短剑。噬魂殿锻造，暗属性。剑柄刻霜花",
+      "history": [
+        { "ch": 1, "action": "acquire", "holder": "gu", "qty": 1, "loc": "heishui", "note": "血魔老祖收她为养女那年亲手锻造" },
+        { "ch": 35, "action": "transfer", "holder": "shen", "qty": 1, "from": "gu", "note": "顾清霜死后沈怀瑾取下。此后十年从不离身" }
+      ]
+    }
+  ]
+}

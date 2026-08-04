@@ -1,0 +1,30 @@
+{
+  "format_version": "1.0",
+  "title": "未命名仙侠",
+  "genre": "仙侠",
+  "sub_genre": "凡人修仙/正邪争锋",
+  "target_chapters": 80,
+  "target_volumes": 4,
+  "pov_style": "third_person_limited",
+  "tone": "serious",
+  "created_at": "2026-07-29",
+  "protagonist": {
+    "archetype": "诛仙式凡人主角",
+    "origin": "普通出身，资质中等偏下",
+    "core_trait": "善良 > 聪明 > 勇敢",
+    "growth_path": "多路径修炼（待定具体体系）"
+  },
+  "power_system": {
+    "type": "修仙",
+    "tiers": 3,
+    "sub_tiers": 9,
+    "special": "多路径冲突修炼"
+  },
+  "romance": {
+    "type": "双女主",
+    "model": "诛仙式——一个推入黑暗、一个带回光明"
+  },
+  "core_theme": "待定——参考诛仙研究的哲学底色清单",
+  "reference_novel": "诛仙（萧鼎）",
+  "research_path": "F:/StoryAI/zhu-xian-study/"
+}

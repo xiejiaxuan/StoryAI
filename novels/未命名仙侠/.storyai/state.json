@@ -1,0 +1,13 @@
+{
+  "phase": "init",
+  "current_chapter": 0,
+  "total_chapters_planned": 80,
+  "chapter_status": {},
+  "stages": {
+    "world_building": "pending",
+    "character_design": "pending",
+    "plot_planning": "pending",
+    "production": "pending"
+  },
+  "last_run_timestamp": "2026-07-29T00:00:00Z"
+}
